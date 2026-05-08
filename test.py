@@ -10,34 +10,48 @@ from src.anti_spoof_predict import AntiSpoofPredict
 from src.generate_patches import CropImage
 from src.utility import parse_model_name
 
-warnings.filterwarnings('ignore')
-
+warnings.filterwarnings("ignore")
 
 MODEL_DIR = "./resources/anti_spoof_models"
 
 
+def draw_text(img, text, x, y, color):
+    cv2.putText(
+        img,
+        text,
+        (x, y),
+        cv2.FONT_HERSHEY_SIMPLEX,
+        0.8,
+        color,
+        2
+    )
+
+
 def main():
 
-    device_id = 0
-
     print("Loading models...")
+
+    device_id = 0
 
     model_test = AntiSpoofPredict(device_id)
     image_cropper = CropImage()
 
     print("Opening webcam...")
+    print("Press ESC to exit")
 
     cap = cv2.VideoCapture(0)
 
-    # webcam resolution
-    cap.set(3, 640)
-    cap.set(4, 480)
+    # webcam size
+    cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
+    cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
 
     if not cap.isOpened():
         print("Cannot open webcam")
         return
 
-    print("Press ESC to exit")
+    fps = 0
+    frame_count = 0
+    start_time = time.time()
 
     while True:
 
@@ -51,15 +65,14 @@ def main():
 
         try:
 
-            start = time.time()
-
-            # face detection
             image_bbox = model_test.get_bbox(image)
 
             prediction = np.zeros((1, 3))
 
-            # anti-spoof prediction
+            # run all anti-spoof models
             for model_name in os.listdir(MODEL_DIR):
+
+                model_path = os.path.join(MODEL_DIR, model_name)
 
                 h_input, w_input, model_type, scale = parse_model_name(model_name)
 
@@ -77,67 +90,70 @@ def main():
 
                 img = image_cropper.crop(**param)
 
-                prediction += model_test.predict(
-                    img,
-                    os.path.join(MODEL_DIR, model_name)
-                )
+                prediction += model_test.predict(img, model_path)
 
             label = np.argmax(prediction)
             score = prediction[0][label] / 2
 
-            inference_time = time.time() - start
-
-            # REAL FACE
-            if label == 1:
+            # improve confidence threshold
+            if label == 1 and score > 0.80:
 
                 result_text = f"REAL FACE  {score:.2f}"
-
                 color = (0, 255, 0)
 
-            # FAKE FACE
             else:
 
                 result_text = f"FAKE FACE  {score:.2f}"
-
                 color = (0, 0, 255)
 
-            # bounding box
+            # face rectangle
             cv2.rectangle(
                 image,
                 (image_bbox[0], image_bbox[1]),
-                (image_bbox[0] + image_bbox[2],
-                 image_bbox[1] + image_bbox[3]),
+                (
+                    image_bbox[0] + image_bbox[2],
+                    image_bbox[1] + image_bbox[3]
+                ),
                 color,
                 2
             )
 
-            # prediction text
-            cv2.putText(
+            # result text
+            draw_text(
                 image,
                 result_text,
-                (image_bbox[0], image_bbox[1] - 10),
-                cv2.FONT_HERSHEY_SIMPLEX,
-                0.8,
-                color,
-                2
-            )
-
-            # FPS
-            fps_text = f"FPS: {1/inference_time:.1f}"
-
-            cv2.putText(
-                image,
-                fps_text,
-                (20, 40),
-                cv2.FONT_HERSHEY_SIMPLEX,
-                0.8,
-                (255, 255, 0),
-                2
+                image_bbox[0],
+                image_bbox[1] - 10,
+                color
             )
 
         except Exception as e:
 
-            print("Detection Error:", e)
+            draw_text(
+                image,
+                "NO FACE DETECTED",
+                20,
+                40,
+                (0, 0, 255)
+            )
+
+        # FPS counter
+        frame_count += 1
+
+        elapsed = time.time() - start_time
+
+        if elapsed > 1:
+            fps = frame_count / elapsed
+            frame_count = 0
+            start_time = time.time()
+
+        draw_text(
+            image,
+            f"FPS: {fps:.1f}",
+            20,
+            80,
+            (255, 255, 0)
+        )
 
         cv2.imshow("Realtime Face Anti-Spoofing", image)
 
@@ -148,7 +164,6 @@ def main():
             break
 
     cap.release()
-
     cv2.destroyAllWindows()
 
 
