@@ -4,11 +4,19 @@ import numpy as np
 from preprocess import preprocess
 
 
+# =========================================
+# LOAD ONNX MODEL
+# =========================================
+
 session = ort.InferenceSession(
     "AntiSpoof.onnx",
     providers=["CPUExecutionProvider"]
 )
 
+
+# =========================================
+# PREDICT FUNCTION
+# =========================================
 
 def predict(image):
 
@@ -25,7 +33,15 @@ def predict(image):
 
     label = int(np.argmax(result))
 
-    if label == 1:
+    # =====================================
+    # LABEL MAPPING
+    # =====================================
+
+    # Most models:
+    # 0 = REAL
+    # 1 = FAKE
+
+    if label == 0:
 
         return {
             "label": "REAL",

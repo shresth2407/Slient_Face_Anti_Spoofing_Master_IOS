@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+
+    <title>Face Anti Spoofing</title>
+
+    <style>
+
+        body{
+            font-family: Arial;
+            text-align:center;
+            background:#111;
+            color:white;
+        }
+
+        video{
+            width:90%;
+            max-width:400px;
+            border-radius:20px;
+            margin-top:20px;
+        }
+
+        button{
+            padding:15px 25px;
+            font-size:18px;
+            margin-top:20px;
+            border:none;
+            border-radius:10px;
+            cursor:pointer;
+        }
+
+        #result{
+            margin-top:20px;
+            font-size:30px;
+            font-weight:bold;
+        }
+
+    </style>
+
+</head>
+
+<body>
+
+    <h1>Face Anti Spoofing</h1>
+
+    <video id="video" autoplay playsinline></video>
+
+    <br>
+
+    <button onclick="detectSpoof()">
+        Detect
+    </button>
+
+    <div id="result"></div>
+
+    <canvas id="canvas" style="display:none;"></canvas>
+
+    <script>
+
+        const video = document.getElementById("video");
+
+        navigator.mediaDevices.getUserMedia({
+            video:true
+        })
+        .then((stream)=>{
+            video.srcObject = stream;
+        });
+
+        async function detectSpoof(){
+
+            const canvas = document.getElementById("canvas");
+
+            canvas.width = video.videoWidth;
+
+            canvas.height = video.videoHeight;
+
+            const ctx = canvas.getContext("2d");
+
+            ctx.drawImage(
+                video,
+                0,
+                0
+            );
+
+            canvas.toBlob(async(blob)=>{
+
+                const formData = new FormData();
+
+                formData.append(
+                    "file",
+                    blob,
+                    "frame.jpg"
+                );
+
+                const response = await fetch(
+                    "/predict",
+                    {
+                        method:"POST",
+                        body:formData
+                    }
+                );
+
+                const data = await response.json();
+
+                document.getElementById(
+                    "result"
+                ).innerHTML =
+                    `${data.label} : ${data.score.toFixed(2)}`;
+
+            }, "image/jpeg");
+
+        }
+
+    </script>
+
+</body>
+
+</html>
+
+
+

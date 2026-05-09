@@ -137,18 +137,15 @@ while True:
 
             spoof_detected = False
 
-            # phone screens usually:
-            # too smooth
-            # too bright
-            # too many sharp edges
+            # smoother spoof checks
 
-            if laplacian_var < 120:
+            if laplacian_var < 40:
                 spoof_detected = True
 
-            if brightness > 180:
+            if brightness > 240:
                 spoof_detected = True
 
-            if edge_density > 25:
+            if edge_density > 60:
                 spoof_detected = True
 
             # ======================================
